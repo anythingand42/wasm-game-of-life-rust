@@ -17,10 +17,17 @@ pub enum Cell {
 }
 
 #[wasm_bindgen]
+pub enum UniverseMode {
+    FixedSizePeriodic,
+    FixedSizeNonPeriodic,
+}
+
+#[wasm_bindgen]
 pub struct Universe {
     width: u32,
     height: u32,
     cells: Vec<Cell>,
+    mode: UniverseMode,
 }
 
 impl Universe {
@@ -30,19 +37,44 @@ impl Universe {
 
     fn live_neighbor_count(&self, row: u32, column: u32) -> u8 {
         let mut count = 0;
-        for delta_row in [self.height - 1, 0, 1].iter().cloned() {
-            for delta_col in [self.width - 1, 0, 1].iter().cloned() {
-                if delta_row == 0 && delta_col == 0 {
-                    continue;
+        match self.mode {
+            UniverseMode::FixedSizePeriodic => {
+                for delta_row in [self.height - 1, 0, 1].iter().cloned() {
+                    for delta_col in [self.width - 1, 0, 1].iter().cloned() {
+                        if delta_row == 0 && delta_col == 0 {
+                            continue;
+                        }
+        
+                        let neighbor_row = (row + delta_row) % self.height;
+                        let neighbor_col = (column + delta_col) % self.width;
+                        let idx = self.get_index(neighbor_row, neighbor_col);
+                        count += self.cells[idx] as u8;
+                    }
                 }
-
-                let neighbor_row = (row + delta_row) % self.height;
-                let neighbor_col = (column + delta_col) % self.width;
-                let idx = self.get_index(neighbor_row, neighbor_col);
-                count += self.cells[idx] as u8;
-            }
+                count
+            },
+            UniverseMode::FixedSizeNonPeriodic => {
+                for delta_row in [-1, 0, 1].iter().cloned() {
+                    for delta_col in [-1, 0, 1].iter().cloned() {
+                        if delta_row == 0 && delta_col == 0 {
+                            continue;
+                        }
+                        if (delta_row == -1 && row == 0) || (delta_row == 1 && row == self.height - 1) {
+                            continue
+                        }
+                        if (delta_col == -1 && column == 0) || (delta_col == 1 && column == self.width - 1) {
+                            continue
+                        }
+        
+                        let neighbor_row = row + delta_row as u32;
+                        let neighbor_col = column + delta_col as u32;
+                        let idx = self.get_index(neighbor_row, neighbor_col);
+                        count += self.cells[idx] as u8;
+                    }
+                }
+                count
+            },
         }
-        count
     }
 }
 
@@ -82,9 +114,7 @@ impl Universe {
         self.cells = next;
     }
 
-    pub fn new() -> Universe {
-        let width = 64;
-        let height = 64;
+    pub fn new(width: u32, height: u32, mode: UniverseMode) -> Universe {
 
         let cells = (0..width * height)
             .map(|i| {
@@ -100,6 +130,7 @@ impl Universe {
             width,
             height,
             cells,
+            mode,
         }
     }
 
@@ -129,7 +160,7 @@ impl fmt::Display for Universe {
                 let symbol = if cell == Cell::Dead { '◻' } else { '◼' };
                 write!(f, "{}", symbol)?;
             }
-            write!(f, "\n")?;
+            writeln!(f, "")?;
         }
 
         Ok(())
