@@ -78,7 +78,7 @@ impl Universe {
     }
 }
 
-/// Public methods, exported to JavaScript.
+// Public methods, exported to JavaScript
 #[wasm_bindgen]
 impl Universe {
     pub fn tick(&mut self) {
@@ -115,16 +115,7 @@ impl Universe {
     }
 
     pub fn new(width: u32, height: u32, mode: UniverseMode) -> Universe {
-
-        let cells = (0..width * height)
-            .map(|i| {
-                if i % 2 == 0 || i % 7 == 0 {
-                    Cell::Alive
-                } else {
-                    Cell::Dead
-                }
-            })
-            .collect();
+        let cells = vec![Cell::Dead; (width * height) as usize];
 
         Universe {
             width,
@@ -133,6 +124,25 @@ impl Universe {
             mode,
         }
     }
+
+    pub fn toggle_cell(&mut self, row: u32, col: u32) {
+        let idx = self.get_index(row, col);
+        self.cells[idx] = match self.cells[idx] {
+            Cell::Alive => Cell::Dead,
+            Cell::Dead => Cell::Alive,
+        }
+    }
+
+    pub fn set_alive(&mut self, row: u32, col: u32) {
+        let idx = self.get_index(row, col);
+        self.cells[idx] = Cell::Alive;
+    }
+
+    pub fn set_dead(&mut self, row: u32, col: u32) {
+        let idx = self.get_index(row, col);
+        self.cells[idx] = Cell::Dead;
+    }
+
 
     pub fn width(&self) -> u32 {
         self.width
@@ -146,7 +156,7 @@ impl Universe {
         self.cells.as_ptr()
     }
 
-    pub fn render(&self) -> String {
+    pub fn render_string(&self) -> String {
         self.to_string()
     }
 }
