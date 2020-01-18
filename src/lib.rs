@@ -125,6 +125,11 @@ impl Universe {
         }
     }
 
+    pub fn reinit(&mut self, width: u32, height: u32, mode: UniverseMode) {
+        self.mode = mode;
+        self.cells = vec![Cell::Dead; (width * height) as usize];
+    }
+
     pub fn toggle_cell(&mut self, row: u32, col: u32) {
         let idx = self.get_index(row, col);
         self.cells[idx] = match self.cells[idx] {
@@ -142,7 +147,6 @@ impl Universe {
         let idx = self.get_index(row, col);
         self.cells[idx] = Cell::Dead;
     }
-
 
     pub fn width(&self) -> u32 {
         self.width
