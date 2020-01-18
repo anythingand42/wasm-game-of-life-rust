@@ -125,9 +125,12 @@ impl Universe {
         }
     }
 
-    pub fn reinit(&mut self, width: u32, height: u32, mode: UniverseMode) {
-        self.mode = mode;
+    pub fn reinit_cells(&mut self, width: u32, height: u32) {
         self.cells = vec![Cell::Dead; (width * height) as usize];
+    }
+
+    pub fn set_mode(&mut self, mode: UniverseMode) {
+        self.mode = mode;
     }
 
     pub fn toggle_cell(&mut self, row: u32, col: u32) {
