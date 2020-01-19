@@ -126,6 +126,8 @@ impl Universe {
     }
 
     pub fn reinit_cells(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
         self.cells = vec![Cell::Dead; (width * height) as usize];
     }
 
