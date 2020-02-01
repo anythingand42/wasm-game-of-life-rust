@@ -8,9 +8,6 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-extern crate fixedbitset;
-use fixedbitset::FixedBitSet;
-
 extern crate web_sys;
 use web_sys::console;
 
@@ -32,6 +29,14 @@ impl<'a> Drop for Timer<'a> {
 }
 
 #[wasm_bindgen]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cell {
+    Dead = 0,
+    Alive = 1,
+}
+
+#[wasm_bindgen]
 pub enum UniverseMode {
     FixedSizePeriodic,
     FixedSizeNonPeriodic,
@@ -41,8 +46,7 @@ pub enum UniverseMode {
 pub struct Universe {
     width: u32,
     height: u32,
-    size: usize,
-    cells: FixedBitSet,
+    cells: Vec<Cell>,
     mode: UniverseMode,
 }
 
@@ -55,46 +59,115 @@ impl Universe {
         let mut count = 0;
         match self.mode {
             UniverseMode::FixedSizePeriodic => {
-                for delta_row in [self.height - 1, 0, 1].iter().cloned() {
-                    for delta_col in [self.width - 1, 0, 1].iter().cloned() {
-                        if delta_row == 0 && delta_col == 0 {
-                            continue;
-                        }
-        
-                        let neighbor_row = (row + delta_row) % self.height;
-                        let neighbor_col = (column + delta_col) % self.width;
-                        let idx = self.get_index(neighbor_row, neighbor_col);
-                        count += self.cells[idx] as u8;
-                    }
-                }
+
+                let north = if row == 0 {
+                    self.height - 1
+                } else {
+                    row - 1
+                };
+            
+                let south = if row == self.height - 1 {
+                    0
+                } else {
+                    row + 1
+                };
+            
+                let west = if column == 0 {
+                    self.width - 1
+                } else {
+                    column - 1
+                };
+            
+                let east = if column == self.width - 1 {
+                    0
+                } else {
+                    column + 1
+                };
+            
+                let nw = self.get_index(north, west);
+                count += self.cells[nw] as u8;
+            
+                let n = self.get_index(north, column);
+                count += self.cells[n] as u8;
+            
+                let ne = self.get_index(north, east);
+                count += self.cells[ne] as u8;
+            
+                let w = self.get_index(row, west);
+                count += self.cells[w] as u8;
+            
+                let e = self.get_index(row, east);
+                count += self.cells[e] as u8;
+            
+                let sw = self.get_index(south, west);
+                count += self.cells[sw] as u8;
+            
+                let s = self.get_index(south, column);
+                count += self.cells[s] as u8;
+            
+                let se = self.get_index(south, east);
+                count += self.cells[se] as u8;
+            
                 count
             },
+
             UniverseMode::FixedSizeNonPeriodic => {
-                for delta_row in [-1, 0, 1].iter().cloned() {
-                    for delta_col in [-1, 0, 1].iter().cloned() {
-                        if delta_row == 0 && delta_col == 0 {
-                            continue;
-                        }
-                        if (delta_row == -1 && row == 0) || (delta_row == 1 && row == self.height - 1) {
-                            continue
-                        }
-                        if (delta_col == -1 && column == 0) || (delta_col == 1 && column == self.width - 1) {
-                            continue
-                        }
-        
-                        let neighbor_row = row + delta_row as u32;
-                        let neighbor_col = column + delta_col as u32;
-                        let idx = self.get_index(neighbor_row, neighbor_col);
-                        count += self.cells[idx] as u8;
+                let north = row - 1;
+                let south = row + 1;
+                let west = column - 1;
+                let east = column + 1;
+
+                let is_not_first_row = row != 0;
+                let is_not_first_column = column != 0;
+                let is_not_last_row = row != (self.height - 1);
+                let is_not_last_column = column != (self.width - 1);
+            
+                if is_not_first_row {
+                    let n = self.get_index(north, column);
+                    count += self.cells[n] as u8;
+
+                    if is_not_first_column {
+                        let nw = self.get_index(north, west);
+                        count += self.cells[nw] as u8;
+                    }
+
+                    if is_not_last_column {
+                        let ne = self.get_index(north, east);
+                        count += self.cells[ne] as u8;
                     }
                 }
+
+                if is_not_first_column {
+                    let w = self.get_index(row, west);
+                    count += self.cells[w] as u8;
+                }
+            
+                if is_not_last_column {
+                    let e = self.get_index(row, east);
+                    count += self.cells[e] as u8;
+                }
+            
+                if is_not_last_row {
+                    let s = self.get_index(south, column);
+                    count += self.cells[s] as u8;
+
+                    if is_not_first_column {
+                        let sw = self.get_index(south, west);
+                        count += self.cells[sw] as u8;
+                    }
+
+                    if is_not_last_column {
+                        let se = self.get_index(south, east);
+                        count += self.cells[se] as u8;
+                    }
+                }
+            
                 count
             },
         }
     }
 }
 
-// Public methods, exported to JavaScript
 #[wasm_bindgen]
 impl Universe {
     pub fn tick(&mut self) {
@@ -109,13 +182,15 @@ impl Universe {
                 let cell = self.cells[idx];
                 let live_neighbors = self.live_neighbor_count(row, col);
 
-                next.set(idx, match (cell, live_neighbors) {
-                    (true, x) if x < 2 => false,
-                    (true, 2) | (true, 3) => true,
-                    (true, x) if x > 3 => false,
-                    (false, 3) => true,
-                    (otherwise, _) => otherwise
-                });
+                let next_cell = match (cell, live_neighbors) {
+                    (Cell::Alive, x) if x < 2 => Cell::Dead,
+                    (Cell::Alive, 2) | (Cell::Alive, 3) => Cell::Alive,
+                    (Cell::Alive, x) if x > 3 => Cell::Dead,
+                    (Cell::Dead, 3) => Cell::Alive,
+                    (otherwise, _) => otherwise,
+                };
+
+                next[idx] = next_cell;
             }
         }
 
@@ -123,18 +198,21 @@ impl Universe {
     }
 
     pub fn new(width: u32, height: u32, mode: UniverseMode) -> Universe {
-        let size = (width * height) as usize;
+        // let cells = vec![Cell::Dead; (width * height) as usize];
 
-        let mut cells = FixedBitSet::with_capacity(size);
-
-        for i in 0..size {
-            cells.set(i, false);
-        }
+        let cells = (0..width * height)
+            .map(|i| {
+                if i % 2 == 0 || i % 7 == 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                }
+            })
+            .collect();
 
         Universe {
             width,
             height,
-            size,
             cells,
             mode,
         }
@@ -143,10 +221,16 @@ impl Universe {
     pub fn reinit_cells(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
-        self.size = (width * height) as usize;
-        for i in 0..self.size {
-            self.cells.set(i, false);
-        }
+        // self.cells = vec![Cell::Dead; (width * height) as usize];
+        self.cells = (0..width * height)
+            .map(|i| {
+                if i % 2 == 0 || i % 7 == 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                }
+            })
+            .collect();
     }
 
     pub fn set_mode(&mut self, mode: UniverseMode) {
@@ -155,17 +239,20 @@ impl Universe {
 
     pub fn toggle_cell(&mut self, row: u32, col: u32) {
         let idx = self.get_index(row, col);
-        self.cells.toggle(idx);
+        self.cells[idx] = match self.cells[idx] {
+            Cell::Alive => Cell::Dead,
+            Cell::Dead => Cell::Alive,
+        }
     }
 
     pub fn set_alive(&mut self, row: u32, col: u32) {
         let idx = self.get_index(row, col);
-        self.cells.set(idx, true);
+        self.cells[idx] = Cell::Alive;
     }
 
     pub fn set_dead(&mut self, row: u32, col: u32) {
         let idx = self.get_index(row, col);
-        self.cells.set(idx, false);
+        self.cells[idx] = Cell::Dead;
     }
 
     pub fn width(&self) -> u32 {
@@ -176,8 +263,8 @@ impl Universe {
         self.height
     }
 
-    pub fn cells(&self) -> *const u32 {
-        self.cells.as_slice().as_ptr()
+    pub fn cells(&self) -> *const Cell {
+        self.cells.as_ptr()
     }
 
     pub fn render_string(&self) -> String {
@@ -189,10 +276,9 @@ use std::fmt;
 
 impl fmt::Display for Universe {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for row in 0..self.height {
-            for column in 0..self.width {
-                let idx = self.get_index(row, column);
-                let symbol = if self.cells.contains(idx) { '◻' } else { '◼' };
+        for line in self.cells.as_slice().chunks(self.width as usize) {
+            for &cell in line {
+                let symbol = if cell == Cell::Dead { '◻' } else { '◼' };
                 write!(f, "{}", symbol)?;
             }
             writeln!(f, "")?;
