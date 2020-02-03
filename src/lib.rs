@@ -48,6 +48,7 @@ pub struct Universe {
     height: u32,
     cells: Vec<Cell>,
     mode: UniverseMode,
+    webgl_vertices: Vec<f32>,
 }
 
 impl Universe {
@@ -210,11 +211,24 @@ impl Universe {
             })
             .collect();
 
+        
+        let mut webgl_vertices = Vec::new();
+        let row_offset = 2.0 / (width + 1) as f32;
+        let col_offset = 2.0 / (height + 1) as f32;
+        for i in 0..height {
+            let row = ((i + 1) as f32) * row_offset;
+            for j in 0..width {
+                webgl_vertices.push(((j + 1) as f32) * col_offset - 1.0);
+                webgl_vertices.push(row - 1.0);
+            }
+        }
+
         Universe {
             width,
             height,
             cells,
             mode,
+            webgl_vertices,
         }
     }
 
@@ -222,6 +236,20 @@ impl Universe {
         self.width = width;
         self.height = height;
         // self.cells = vec![Cell::Dead; (width * height) as usize];
+
+        let mut webgl_vertices = Vec::new();
+        let row_offset = 2.0 / width as f32;
+        let col_offset = 2.0 / height as f32;
+        for i in 0..height {
+            let row = (i as f32) * row_offset;
+            for j in 0..width {
+                webgl_vertices.push((j as f32) * col_offset);
+                webgl_vertices.push(row);
+            }
+        }
+
+        self.webgl_vertices = webgl_vertices;
+
         self.cells = (0..width * height)
             .map(|i| {
                 if i % 2 == 0 || i % 7 == 0 {
@@ -269,6 +297,10 @@ impl Universe {
 
     pub fn render_string(&self) -> String {
         self.to_string()
+    }
+
+    pub fn webgl_vertices(&self) -> *const f32 {
+        self.webgl_vertices.as_ptr()
     }
 }
 
