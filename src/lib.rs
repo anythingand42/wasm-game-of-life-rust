@@ -51,6 +51,47 @@ pub struct Universe {
     webgl_vertices: Vec<f32>,
 }
 
+fn create_webgl_vertices(width: u32, height: u32) -> Vec<f32> {
+    let mut webgl_vertices = Vec::new();
+    let row_offset = 2.0 / (width + 1) as f32;
+    let col_offset = 2.0 / (height + 1) as f32;
+    let cells_offset_koef = 0.5;
+    for i in 0..height {
+        let row_north = ((i + 1) as f32) * row_offset + row_offset * cells_offset_koef - 1.0;
+        let row_south = ((i + 1) as f32) * row_offset - row_offset * cells_offset_koef - 1.0;
+        for j in 0..width {
+            let column_east = ((j + 1) as f32) * col_offset + col_offset * cells_offset_koef - 1.0;
+            let column_west = ((j + 1) as f32) * col_offset - col_offset * cells_offset_koef - 1.0;
+            webgl_vertices.push(row_north);
+            webgl_vertices.push(column_west);
+            webgl_vertices.push(row_north);
+            webgl_vertices.push(column_east);
+            webgl_vertices.push(row_south);
+            webgl_vertices.push(column_east);
+
+            webgl_vertices.push(row_north);
+            webgl_vertices.push(column_west);
+            webgl_vertices.push(row_south);
+            webgl_vertices.push(column_west);
+            webgl_vertices.push(row_south);
+            webgl_vertices.push(column_east);
+        }
+    }
+    webgl_vertices
+}
+
+// fn create_webgl_vertices(width: u32, height: u32) -> Vec<f32> {
+//     let mut webgl_vertices = Vec::new();
+//     let row_offset = 2.0 / (width + 1) as f32;
+//     let col_offset = 2.0 / (height + 1) as f32;
+//     for i in 0..height {
+//         for j in 0..width {
+
+//         }
+//     }
+//     webgl_vertices
+// }
+
 impl Universe {
     fn get_index(&self, row: u32, column: u32) -> usize {
         (row * self.width + column) as usize
@@ -212,16 +253,7 @@ impl Universe {
             .collect();
 
         
-        let mut webgl_vertices = Vec::new();
-        let row_offset = 2.0 / (width + 1) as f32;
-        let col_offset = 2.0 / (height + 1) as f32;
-        for i in 0..height {
-            let row = ((i + 1) as f32) * row_offset;
-            for j in 0..width {
-                webgl_vertices.push(((j + 1) as f32) * col_offset - 1.0);
-                webgl_vertices.push(row - 1.0);
-            }
-        }
+        let webgl_vertices = create_webgl_vertices(width, height);
 
         Universe {
             width,
@@ -237,18 +269,7 @@ impl Universe {
         self.height = height;
         // self.cells = vec![Cell::Dead; (width * height) as usize];
 
-        let mut webgl_vertices = Vec::new();
-        let row_offset = 2.0 / width as f32;
-        let col_offset = 2.0 / height as f32;
-        for i in 0..height {
-            let row = (i as f32) * row_offset;
-            for j in 0..width {
-                webgl_vertices.push((j as f32) * col_offset);
-                webgl_vertices.push(row);
-            }
-        }
-
-        self.webgl_vertices = webgl_vertices;
+        self.webgl_vertices = create_webgl_vertices(width, height);
 
         self.cells = (0..width * height)
             .map(|i| {
@@ -293,6 +314,17 @@ impl Universe {
 
     pub fn cells(&self) -> *const Cell {
         self.cells.as_ptr()
+    }
+
+    pub fn webgl_cells(&self) -> *const u8 {
+        let mut webgl_cells = Vec::new();
+        for cell in self.cells.as_slice() {
+            let c = *cell as u8;
+            for _ in 0..6 {
+                webgl_cells.push(c);
+            }
+        }
+        webgl_cells.as_ptr()
     }
 
     pub fn render_string(&self) -> String {
