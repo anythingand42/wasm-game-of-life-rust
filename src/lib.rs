@@ -1,4 +1,5 @@
 mod utils;
+mod webgl;
 
 use wasm_bindgen::prelude::*;
 
@@ -36,6 +37,15 @@ pub enum Cell {
     Alive = 1,
 }
 
+impl Cell {
+    pub fn toggle(&mut self) {
+        *self = match *self {
+            Cell::Dead => Cell::Alive,
+            Cell::Alive => Cell::Dead,
+        };
+    }
+}
+
 #[wasm_bindgen]
 pub enum UniverseMode {
     FixedSizePeriodic,
@@ -59,57 +69,48 @@ impl Universe {
         let mut count = 0;
         match self.mode {
             UniverseMode::FixedSizePeriodic => {
+                let north = if row == 0 { self.height - 1 } else { row - 1 };
 
-                let north = if row == 0 {
-                    self.height - 1
-                } else {
-                    row - 1
-                };
-            
-                let south = if row == self.height - 1 {
-                    0
-                } else {
-                    row + 1
-                };
-            
+                let south = if row == self.height - 1 { 0 } else { row + 1 };
+
                 let west = if column == 0 {
                     self.width - 1
                 } else {
                     column - 1
                 };
-            
+
                 let east = if column == self.width - 1 {
                     0
                 } else {
                     column + 1
                 };
-            
+
                 let nw = self.get_index(north, west);
                 count += self.cells[nw] as u8;
-            
+
                 let n = self.get_index(north, column);
                 count += self.cells[n] as u8;
-            
+
                 let ne = self.get_index(north, east);
                 count += self.cells[ne] as u8;
-            
+
                 let w = self.get_index(row, west);
                 count += self.cells[w] as u8;
-            
+
                 let e = self.get_index(row, east);
                 count += self.cells[e] as u8;
-            
+
                 let sw = self.get_index(south, west);
                 count += self.cells[sw] as u8;
-            
+
                 let s = self.get_index(south, column);
                 count += self.cells[s] as u8;
-            
+
                 let se = self.get_index(south, east);
                 count += self.cells[se] as u8;
-            
+
                 count
-            },
+            }
 
             UniverseMode::FixedSizeNonPeriodic => {
                 let north = row - 1;
@@ -121,7 +122,7 @@ impl Universe {
                 let is_not_first_column = column != 0;
                 let is_not_last_row = row != (self.height - 1);
                 let is_not_last_column = column != (self.width - 1);
-            
+
                 if is_not_first_row {
                     let n = self.get_index(north, column);
                     count += self.cells[n] as u8;
@@ -141,12 +142,12 @@ impl Universe {
                     let w = self.get_index(row, west);
                     count += self.cells[w] as u8;
                 }
-            
+
                 if is_not_last_column {
                     let e = self.get_index(row, east);
                     count += self.cells[e] as u8;
                 }
-            
+
                 if is_not_last_row {
                     let s = self.get_index(south, column);
                     count += self.cells[s] as u8;
@@ -161,9 +162,8 @@ impl Universe {
                         count += self.cells[se] as u8;
                     }
                 }
-            
                 count
-            },
+            }
         }
     }
 }
@@ -171,7 +171,6 @@ impl Universe {
 #[wasm_bindgen]
 impl Universe {
     pub fn tick(&mut self) {
-
         let _timer = Timer::new("Universe::tick");
 
         let mut next = self.cells.clone();
@@ -222,6 +221,7 @@ impl Universe {
         self.width = width;
         self.height = height;
         // self.cells = vec![Cell::Dead; (width * height) as usize];
+
         self.cells = (0..width * height)
             .map(|i| {
                 if i % 2 == 0 || i % 7 == 0 {
@@ -239,10 +239,7 @@ impl Universe {
 
     pub fn toggle_cell(&mut self, row: u32, col: u32) {
         let idx = self.get_index(row, col);
-        self.cells[idx] = match self.cells[idx] {
-            Cell::Alive => Cell::Dead,
-            Cell::Dead => Cell::Alive,
-        }
+        self.cells[idx].toggle();
     }
 
     pub fn set_alive(&mut self, row: u32, col: u32) {
@@ -265,6 +262,16 @@ impl Universe {
 
     pub fn cells(&self) -> *const Cell {
         self.cells.as_ptr()
+    }
+
+    pub fn webgl_colors(&self) -> *const u8 {
+        let webgl_cells = webgl::create_colors(&self.cells);
+        webgl_cells.as_ptr()
+    }
+
+    pub fn webgl_vertices(&self, size_coef: f32) -> *const f32 {
+        let vertices = webgl::create_vertices(self.width, self.height, size_coef);
+        vertices.as_ptr()
     }
 
     pub fn render_string(&self) -> String {
