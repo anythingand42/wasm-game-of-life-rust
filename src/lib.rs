@@ -1,4 +1,5 @@
 mod utils;
+mod webgl;
 
 use wasm_bindgen::prelude::*;
 
@@ -36,6 +37,15 @@ pub enum Cell {
     Alive = 1,
 }
 
+impl Cell {
+    pub fn toggle(&mut self) {
+        *self = match *self {
+            Cell::Dead => Cell::Alive,
+            Cell::Alive => Cell::Dead,
+        };
+    }
+}
+
 #[wasm_bindgen]
 pub enum UniverseMode {
     FixedSizePeriodic,
@@ -50,47 +60,6 @@ pub struct Universe {
     mode: UniverseMode,
     webgl_vertices: Vec<f32>,
 }
-
-fn create_webgl_vertices(width: u32, height: u32) -> Vec<f32> {
-    let mut webgl_vertices = Vec::new();
-    let row_offset = 2.0 / (width + 1) as f32;
-    let col_offset = 2.0 / (height + 1) as f32;
-    let cells_offset_koef = 0.5;
-    for i in 0..height {
-        let row_north = ((i + 1) as f32) * row_offset + row_offset * cells_offset_koef - 1.0;
-        let row_south = ((i + 1) as f32) * row_offset - row_offset * cells_offset_koef - 1.0;
-        for j in 0..width {
-            let column_east = ((j + 1) as f32) * col_offset + col_offset * cells_offset_koef - 1.0;
-            let column_west = ((j + 1) as f32) * col_offset - col_offset * cells_offset_koef - 1.0;
-            webgl_vertices.push(row_north);
-            webgl_vertices.push(column_west);
-            webgl_vertices.push(row_north);
-            webgl_vertices.push(column_east);
-            webgl_vertices.push(row_south);
-            webgl_vertices.push(column_east);
-
-            webgl_vertices.push(row_north);
-            webgl_vertices.push(column_west);
-            webgl_vertices.push(row_south);
-            webgl_vertices.push(column_west);
-            webgl_vertices.push(row_south);
-            webgl_vertices.push(column_east);
-        }
-    }
-    webgl_vertices
-}
-
-// fn create_webgl_vertices(width: u32, height: u32) -> Vec<f32> {
-//     let mut webgl_vertices = Vec::new();
-//     let row_offset = 2.0 / (width + 1) as f32;
-//     let col_offset = 2.0 / (height + 1) as f32;
-//     for i in 0..height {
-//         for j in 0..width {
-
-//         }
-//     }
-//     webgl_vertices
-// }
 
 impl Universe {
     fn get_index(&self, row: u32, column: u32) -> usize {
@@ -252,15 +221,12 @@ impl Universe {
             })
             .collect();
 
-        
-        let webgl_vertices = create_webgl_vertices(width, height);
-
         Universe {
             width,
             height,
             cells,
             mode,
-            webgl_vertices,
+            webgl_vertices: webgl::create_vertices(width, height),
         }
     }
 
@@ -269,7 +235,7 @@ impl Universe {
         self.height = height;
         // self.cells = vec![Cell::Dead; (width * height) as usize];
 
-        self.webgl_vertices = create_webgl_vertices(width, height);
+        self.webgl_vertices = webgl::create_vertices(width, height);
 
         self.cells = (0..width * height)
             .map(|i| {
@@ -288,10 +254,7 @@ impl Universe {
 
     pub fn toggle_cell(&mut self, row: u32, col: u32) {
         let idx = self.get_index(row, col);
-        self.cells[idx] = match self.cells[idx] {
-            Cell::Alive => Cell::Dead,
-            Cell::Dead => Cell::Alive,
-        }
+        self.cells[idx].toggle();
     }
 
     pub fn set_alive(&mut self, row: u32, col: u32) {
@@ -317,22 +280,16 @@ impl Universe {
     }
 
     pub fn webgl_cells(&self) -> *const u8 {
-        let mut webgl_cells = Vec::new();
-        for cell in self.cells.as_slice() {
-            let c = *cell as u8;
-            for _ in 0..6 {
-                webgl_cells.push(c);
-            }
-        }
+        let webgl_cells = webgl::create_colors(&self.cells);
         webgl_cells.as_ptr()
-    }
-
-    pub fn render_string(&self) -> String {
-        self.to_string()
     }
 
     pub fn webgl_vertices(&self) -> *const f32 {
         self.webgl_vertices.as_ptr()
+    }
+
+    pub fn render_string(&self) -> String {
+        self.to_string()
     }
 }
 
