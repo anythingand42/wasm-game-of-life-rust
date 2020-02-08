@@ -58,7 +58,6 @@ pub struct Universe {
     height: u32,
     cells: Vec<Cell>,
     mode: UniverseMode,
-    webgl_vertices: Vec<f32>,
 }
 
 impl Universe {
@@ -215,7 +214,6 @@ impl Universe {
             height,
             cells,
             mode,
-            webgl_vertices: webgl::create_vertices(width, height),
         }
     }
 
@@ -223,8 +221,6 @@ impl Universe {
         self.width = width;
         self.height = height;
         // self.cells = vec![Cell::Dead; (width * height) as usize];
-
-        self.webgl_vertices = webgl::create_vertices(width, height);
 
         self.cells = (0..width * height)
             .map(|i| {
@@ -268,13 +264,15 @@ impl Universe {
         self.cells.as_ptr()
     }
 
-    pub fn webgl_cells(&self) -> *const u8 {
+    pub fn webgl_colors(&self) -> *const u8 {
         let webgl_cells = webgl::create_colors(&self.cells);
         webgl_cells.as_ptr()
     }
 
-    pub fn webgl_vertices(&self) -> *const f32 {
-        self.webgl_vertices.as_ptr()
+    pub fn webgl_vertices(&self, size_coef: f32) -> *const f32 {
+        console::log_2(&"szie_coef: ".into(), &size_coef.into());
+        let vertices = webgl::create_vertices(self.width, self.height, size_coef);
+        vertices.as_ptr()
     }
 
     pub fn render_string(&self) -> String {
