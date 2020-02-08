@@ -270,7 +270,6 @@ impl Universe {
     }
 
     pub fn webgl_vertices(&self, size_coef: f32) -> *const f32 {
-        console::log_2(&"szie_coef: ".into(), &size_coef.into());
         let vertices = webgl::create_vertices(self.width, self.height, size_coef);
         vertices.as_ptr()
     }
