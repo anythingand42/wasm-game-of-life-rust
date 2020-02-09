@@ -197,22 +197,10 @@ impl Universe {
     }
 
     pub fn new(width: u32, height: u32, mode: UniverseMode) -> Universe {
-        // let cells = vec![Cell::Dead; (width * height) as usize];
-
-        let cells = (0..width * height)
-            .map(|i| {
-                if i % 2 == 0 || i % 7 == 0 {
-                    Cell::Alive
-                } else {
-                    Cell::Dead
-                }
-            })
-            .collect();
-
         Universe {
             width,
             height,
-            cells,
+            cells: vec![Cell::Dead; (width * height) as usize],
             mode,
         }
     }
@@ -220,17 +208,7 @@ impl Universe {
     pub fn reinit_cells(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
-        // self.cells = vec![Cell::Dead; (width * height) as usize];
-
-        self.cells = (0..width * height)
-            .map(|i| {
-                if i % 2 == 0 || i % 7 == 0 {
-                    Cell::Alive
-                } else {
-                    Cell::Dead
-                }
-            })
-            .collect();
+        self.cells = vec![Cell::Dead; (width * height) as usize];
     }
 
     pub fn set_mode(&mut self, mode: UniverseMode) {
